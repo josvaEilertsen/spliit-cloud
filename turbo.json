@@ -1,5 +1,27 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "NODE_ENV",
+    "DATABASE_URL",
+    "DATABASE_POOL_SIZE",
+    "PUBLIC_ENABLE_EXPENSE_DOCUMENTS",
+    "S3_UPLOAD_BUCKET",
+    "S3_UPLOAD_KEY",
+    "S3_UPLOAD_SECRET",
+    "S3_UPLOAD_REGION",
+    "S3_UPLOAD_ENDPOINT",
+    "S3_UPLOAD_PUBLIC_URL",
+    "BETTER_AUTH_SECRET",
+    "CRON_SECRET",
+    "EMAIL_UNSUBSCRIBE_SECRET",
+    "WEB_ORIGINS",
+    "BETTER_AUTH_URL",
+    "TRUST_PROXY",
+    "PUBLIC_DEFAULT_CURRENCY_CODE",
+    "SIGNUP_MODE",
+    "SMTP_HOST",
+    "SMTP_PORT"
+  ],
   "tasks": {
     "ci-checks": {
       "dependsOn": [
