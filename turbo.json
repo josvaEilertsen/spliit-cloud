@@ -4,6 +4,7 @@
     "ci-checks": {
       "dependsOn": [
         "//#check-formatting:root",
+        "//#check-types:root",
         "check-formatting",
         "lint",
         "check-types",
@@ -72,12 +73,16 @@
         ".oxlintrc.json",
         "package.json",
         "turbo.json",
+        "tsconfig.json",
+        "vercel.json",
+        "api/**",
         "*.md",
         ".devcontainer/**",
         ".github/**",
         "docs/**",
         "handoff/**",
-        "compose*.yaml",
+        "compose.dev.yaml",
+        "compose.dokploy.yaml",
         "doctor.config.json"
       ]
     },
@@ -88,17 +93,25 @@
         ".oxlintrc.json",
         "package.json",
         "turbo.json",
+        "tsconfig.json",
+        "vercel.json",
+        "api/**",
         "*.md",
         ".devcontainer/**",
         ".github/**",
         "docs/**",
         "handoff/**",
-        "compose*.yaml",
+        "compose.dev.yaml",
+        "compose.dokploy.yaml",
         "doctor.config.json"
       ]
     },
     "check-types": {
       "dependsOn": ["^build", "@spliit/db#prisma-generate"]
+    },
+    "//#check-types:root": {
+      "dependsOn": ["@spliit/db#prisma-generate"],
+      "inputs": ["api/**/*.ts", "tsconfig.json", "$TURBO_ROOT$/bun.lock"]
     },
     "i18n": {},
     "generate-openapi": {

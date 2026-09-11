@@ -57,8 +57,10 @@ In Dokploy:
 1. Add a domain for the `mcp` Compose service.
 2. Route it to container port `3002`.
 3. Enable HTTPS.
-4. Deploy the Compose application. The migration must complete, then the API
-   must become healthy before the MCP service starts.
+4. Deploy the Compose application. The migration must complete before the
+   MCP service starts. The API itself now runs on Vercel (see README.md's
+   "Deploy to Vercel" section), not in this Compose stack — `MCP_API_URL`
+   below points at its public Vercel origin.
 5. Do not place an authentication proxy in front of the MCP domain. Spliit's
    OAuth bearer flow protects `/mcp`.
 

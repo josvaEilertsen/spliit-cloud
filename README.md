@@ -18,7 +18,7 @@ Public instance: **[https://spliit.cloud](https://spliit.cloud)**
 
 Live uptime & incident status at **[https://status.spliit.cloud](https://status.spliit.cloud/)**
 
-You can also self-host your own instance. See [Self-hosting overview](#self-hosting-overview), [Run locally](#run-locally), and [Run in a container](#run-in-a-container).
+You can also self-host your own instance. See [Self-hosting overview](#self-hosting-overview), [Run locally](#run-locally), and [Deploy to Vercel](#deploy-to-vercel).
 
 > [!IMPORTANT]
 > The public instance is provided as a community-hosted service. If you need full control over data, uptime, backups, or privacy, self-hosting is recommended.
@@ -129,14 +129,22 @@ If you discover a security issue, please follow the responsible disclosure proce
 
 ## Self-hosting overview
 
-The supported Docker setup runs the web app, API, background worker, migrations,
-and PostgreSQL as one Compose project. The web container is the only public
-entry point: it serves the SPA and proxies API/auth requests over the private
-Docker network. Point any HTTPS reverse proxy at the web port.
+Spliit Cloud deploys as a single [Vercel](https://vercel.com/) project: the
+web app builds as a static SPA and the API runs as one Node.js serverless
+function behind the same domain, so no separate host or reverse proxy is
+needed. Recurring-expense processing (and, if enabled, anonymous-account
+cleanup) runs via Vercel Cron instead of an always-on background worker. Any
+Postgres works ([Neon](https://neon.tech/) is a good managed fit); any
+S3-compatible bucket works for document storage ([Cloudflare
+R2](https://developers.cloudflare.com/r2/) is a good fit).
 
 SMTP is required for sign-in links, email verification, recovery, and
 invitations. S3-compatible document storage, AI features, OAuth providers, Web
 Push, and the MCP assistant are optional.
+
+The MCP assistant server still deploys separately as a small always-on
+service (Docker image, e.g. via Dokploy) — see
+[docs/mcp-publishing.md](./docs/mcp-publishing.md).
 
 ## Run locally
 
@@ -165,59 +173,52 @@ MaxIO bucket CORS/public-read config lives at
 `storage/maxio/buckets/spliit-local/.bucket.json`; other local service state is
 ignored by Git.
 
-## Run in a container
+## Deploy to Vercel
 
-1. Download `compose.yaml` and `container.env.example`, or clone this
-   repository.
-2. Copy `container.env.example` to `container.env`.
-3. Set `APP_URL`, `POSTGRES_PASSWORD`, `BETTER_AUTH_SECRET`, the SMTP settings,
-   `EMAIL_FROM`, and `EMAIL_UNSUBSCRIBE_SECRET`.
-4. Start the stack:
+1. Import this repository into a new Vercel project. Root Directory: `.`
+   (repo root) — the build needs the whole Bun workspace to resolve
+   `@spliit/*` packages and produce both the SPA build and the API function.
+2. Provision Postgres (e.g. a [Neon](https://neon.tech/) database) and an
+   S3-compatible bucket for document storage (e.g. [Cloudflare
+   R2](https://developers.cloudflare.com/r2/), region `auto`).
+3. Run migrations once against that database before the first deploy:
 
    ```bash
-   docker compose --env-file container.env up -d
+   DATABASE_URL=<your-connection-string> bun run prisma-migrate
    ```
 
-The web gateway listens on `127.0.0.1:3000` by default. Configure your reverse
-proxy to forward the public `APP_URL` to that address. Change `WEB_PORT` when
-needed; set `BIND_ADDRESS=0.0.0.0` only when the port must be reachable beyond
-the local host.
+   Vercel's build does **not** run migrations automatically (builds run per
+   deployment, including preview branches, so coupling `prisma migrate
+deploy` to every build risks concurrent/duplicate runs against a single
+   database). Re-run this manually whenever a deploy includes a schema
+   change.
 
-The API, worker, and database remain private. Migrations run automatically
-before the API starts, and PostgreSQL data is stored in the `postgres_data`
-volume.
+4. Set these Vercel project environment variables (see `.env.example` for
+   the full list and descriptions):
 
-To expose the API directly for debugging or an intentional split-origin
-deployment:
+   - `DATABASE_URL`, `S3_UPLOAD_*`
+   - `BETTER_AUTH_SECRET` (`openssl rand -base64 32`)
+   - `WEB_ORIGINS` and `BETTER_AUTH_URL` set to your Vercel domain (same
+     origin for both, since web and API share one deployment)
+   - `TRUST_PROXY=true` (Vercel's edge is the sole ingress and reliably sets
+     `X-Forwarded-For`)
+   - `CRON_SECRET` (`openssl rand -hex 32`) — authenticates Vercel's own
+     requests to `/api/cron/*`
+   - SMTP settings, `EMAIL_FROM`, and `EMAIL_UNSUBSCRIBE_SECRET`
+   - for a private instance, `SIGNUP_MODE=invite_only` so only invited
+     people can create accounts (the first user on a fresh instance can
+     always register)
 
-```bash
-docker compose \
-  --env-file container.env \
-  -f compose.yaml \
-  -f compose.api-port.yaml \
-  up -d
-```
+5. Deploy. `vercel.json` at the repo root configures the build, the API
+   function, the SPA fallback routing, and the three Vercel Cron jobs that
+   replace the old background worker (recurring-expense materialize every 5
+   minutes, reconcile every 30 minutes, anonymous-account cleanup daily).
 
-Developers can build the same stack from source with
-`-f compose.yaml -f compose.build.yaml`.
-
-See [docs/deployment.md](./docs/deployment.md) for configuration, reverse-proxy,
-upgrade, backup, and optional-feature guidance. For a private instance, set
-`SIGNUP_MODE=invite_only` in `container.env` so only invited people can create
-accounts.
-
-## Production deployment
-
-Key requirements for a public instance:
-
-- `BETTER_AUTH_SECRET` generated with `openssl rand -base64 32`
-- `EMAIL_UNSUBSCRIBE_SECRET` generated with `openssl rand -hex 32`
-- HTTPS on the configured `APP_URL`
-- persistent PostgreSQL storage with off-server backups
-- working SMTP and correctly configured SPF/DKIM/DMARC
-- only the web gateway reachable publicly
-- tested database restore procedure
-- for a private instance, `SIGNUP_MODE=invite_only` so only invited people can create accounts (the first user on a fresh instance can always register)
+Notification delivery (email/push activity alerts and budget-threshold
+alerts) is currently disabled in this deployment path — the underlying
+tables and enqueue calls still exist, but nothing drains those queues.
+Everything else (auth email, invitations, recurring expenses, exports,
+imports, AI features) works the same as self-hosted.
 
 ## Health check
 

@@ -8,7 +8,8 @@
     "./env": "./src/env.ts",
     "./registry": "./src/registry.ts",
     "./boss": "./src/boss.ts",
-    "./lifecycle": "./src/lifecycle.ts"
+    "./lifecycle": "./src/lifecycle.ts",
+    "./drain": "./src/drain.ts"
   },
   "scripts": {
     "check-formatting": "oxfmt --check .",

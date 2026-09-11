@@ -10,147 +10,13 @@ services:
     networks:
       - dokploy-network
 
-  api:
-    image: ghcr.io/antonio-ivanovski/spliit-cloud-api:latest
-    pull_policy: always
-    restart: unless-stopped
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    env_file:
-      - .env
-    ports:
-      - 3001:3001
-    environment:
-      PORT: 3001
-      WEB_ORIGINS: ${WEB_ORIGINS}
-      TRUST_PROXY: ${TRUST_PROXY:-false}
-      DATABASE_URL: ${DATABASE_URL}
-      DATABASE_APPLICATION_NAME: spliit-api
-      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
-      DATABASE_POOL_ACQUIRE_TIMEOUT_MS: ${DATABASE_POOL_ACQUIRE_TIMEOUT_MS:-5000}
-      DATABASE_TRANSACTION_MAX_WAIT_MS: ${DATABASE_TRANSACTION_MAX_WAIT_MS:-2000}
-      DATABASE_TRANSACTION_TIMEOUT_MS: ${DATABASE_TRANSACTION_TIMEOUT_MS:-5000}
-      PUBLIC_DEFAULT_CURRENCY_CODE: ${PUBLIC_DEFAULT_CURRENCY_CODE:-USD}
-      PUBLIC_ENABLE_EXPENSE_DOCUMENTS: ${PUBLIC_ENABLE_EXPENSE_DOCUMENTS:-false}
-      PUBLIC_ENABLE_RECEIPT_EXTRACT: ${PUBLIC_ENABLE_RECEIPT_EXTRACT:-false}
-      PUBLIC_ENABLE_VOICE_EXPENSE: ${PUBLIC_ENABLE_VOICE_EXPENSE:-false}
-      PUBLIC_ENABLE_CATEGORY_EXTRACT: ${PUBLIC_ENABLE_CATEGORY_EXTRACT:-false}
-      S3_UPLOAD_KEY: ${S3_UPLOAD_KEY:-}
-      S3_UPLOAD_SECRET: ${S3_UPLOAD_SECRET:-}
-      S3_UPLOAD_BUCKET: ${S3_UPLOAD_BUCKET:-}
-      S3_UPLOAD_REGION: ${S3_UPLOAD_REGION:-}
-      S3_UPLOAD_ENDPOINT: ${S3_UPLOAD_ENDPOINT:-}
-      S3_UPLOAD_PUBLIC_URL: ${S3_UPLOAD_PUBLIC_URL:-}
-      AI_PROVIDER: ${AI_PROVIDER:-openai}
-      AI_API_KEY: ${AI_API_KEY:-}
-      AI_BASE_URL: ${AI_BASE_URL:-}
-      AI_RECEIPT_MODEL: ${AI_RECEIPT_MODEL:-gpt-5-nano}
-      AI_CATEGORY_MODEL: ${AI_CATEGORY_MODEL:-gpt-5-nano}
-      AI_VOICE_MODEL: ${AI_VOICE_MODEL:-}
-      # Better Auth (required: BETTER_AUTH_SECRET)
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
-      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      TWITTER_CLIENT_ID: ${TWITTER_CLIENT_ID:-}
-      TWITTER_CLIENT_SECRET: ${TWITTER_CLIENT_SECRET:-}
-      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
-      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-}
-      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-}
-      OIDC_PROVIDER_ID: ${OIDC_PROVIDER_ID:-}
-      ENABLE_MCP: 'true'
-      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:?MCP_PUBLIC_URL must be set}
-      ASSISTANT_CONFIRMATION_SECRET: ${ASSISTANT_CONFIRMATION_SECRET:?ASSISTANT_CONFIRMATION_SECRET must be set}
-      # SMTP (required: SMTP_HOST)
-      SMTP_HOST: ${SMTP_HOST:?SMTP_HOST must be set}
-      SMTP_PORT: ${SMTP_PORT:-}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:?EMAIL_FROM must be set}
-      PUSH_VAPID_PUBLIC_KEY: ${PUSH_VAPID_PUBLIC_KEY:?PUSH_VAPID_PUBLIC_KEY must be set}
-      PUSH_VAPID_PRIVATE_KEY: ${PUSH_VAPID_PRIVATE_KEY:?PUSH_VAPID_PRIVATE_KEY must be set}
-      PUSH_VAPID_SUBJECT: ${PUSH_VAPID_SUBJECT:?PUSH_VAPID_SUBJECT must be set}
-      EMAIL_UNSUBSCRIBE_SECRET: ${EMAIL_UNSUBSCRIBE_SECRET:?EMAIL_UNSUBSCRIBE_SECRET must be set}
-      SIGNUP_MODE: ${SIGNUP_MODE:-open}
-      ENABLE_ANONYMOUS_AUTH: ${ENABLE_ANONYMOUS_AUTH:-false}
-      JOBS_ENABLED: ${JOBS_ENABLED:-true}
-    networks:
-      - dokploy-network
-    healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'bun -e "fetch(''http://127.0.0.1:3001/health/readiness'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 20s
-
-  worker:
-    image: ghcr.io/antonio-ivanovski/spliit-cloud-worker:latest
-    pull_policy: always
-    restart: unless-stopped
-    stop_grace_period: 40s
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      DATABASE_APPLICATION_NAME: spliit-worker
-      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-10}
-      DATABASE_POOL_ACQUIRE_TIMEOUT_MS: ${DATABASE_POOL_ACQUIRE_TIMEOUT_MS:-5000}
-      DATABASE_TRANSACTION_MAX_WAIT_MS: ${DATABASE_TRANSACTION_MAX_WAIT_MS:-2000}
-      DATABASE_TRANSACTION_TIMEOUT_MS: ${DATABASE_TRANSACTION_TIMEOUT_MS:-5000}
-      JOBS_ENABLED: ${JOBS_ENABLED:-true}
-      JOBS_RECONCILIATION_CRON: ${JOBS_RECONCILIATION_CRON:-*/30 * * * *}
-      JOBS_NOTIFICATION_RECONCILE_CRON: ${JOBS_NOTIFICATION_RECONCILE_CRON:-*/15 * * * *}
-      JOBS_MAX_CONCURRENCY: ${JOBS_MAX_CONCURRENCY:-1}
-      JOBS_POLLING_INTERVAL_SECONDS: ${JOBS_POLLING_INTERVAL_SECONDS:-60}
-      JOBS_MAINTENANCE_POLLING_INTERVAL_SECONDS: ${JOBS_MAINTENANCE_POLLING_INTERVAL_SECONDS:-300}
-      JOBS_POOL_SIZE: ${JOBS_POOL_SIZE:-8}
-      JOBS_RETRY_LIMIT: ${JOBS_RETRY_LIMIT:-5}
-      JOBS_RETRY_BACKOFF_SECONDS: ${JOBS_RETRY_BACKOFF_SECONDS:-30}
-      JOBS_RETENTION_SECONDS: ${JOBS_RETENTION_SECONDS:-604800}
-      HEALTH_RUNNABLE_LAG_THRESHOLD_MS: ${HEALTH_RUNNABLE_LAG_THRESHOLD_MS:-900000}
-      HEALTH_MISSING_TRANSPORT_THRESHOLD: ${HEALTH_MISSING_TRANSPORT_THRESHOLD:-10}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:-}
-      PUSH_VAPID_PUBLIC_KEY: ${PUSH_VAPID_PUBLIC_KEY:-}
-      PUSH_VAPID_PRIVATE_KEY: ${PUSH_VAPID_PRIVATE_KEY:-}
-      PUSH_VAPID_SUBJECT: ${PUSH_VAPID_SUBJECT:-}
-      EMAIL_UNSUBSCRIBE_SECRET: ${EMAIL_UNSUBSCRIBE_SECRET:-}
-      JOBS_ADMIN_HOST: 0.0.0.0
-      JOBS_ADMIN_PORT: 3003
-    networks:
-      - dokploy-network
-    healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'bun -e "fetch(''http://127.0.0.1:3003/health/readiness'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-      start_period: 20s
-
   mcp:
     image: ghcr.io/antonio-ivanovski/spliit-cloud-mcp:latest
     pull_policy: always
     restart: unless-stopped
     depends_on:
-      api:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - .env
     ports:
@@ -160,6 +26,8 @@ services:
       PORT: 3002
       HOST: 0.0.0.0
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:?MCP_PUBLIC_URL must be set}
+      # Point at the Vercel-hosted API's public origin now that api no longer
+      # runs in this compose stack. See docs/mcp-publishing.md.
       MCP_API_URL: ${MCP_API_URL:?MCP_API_URL must be set}
       MCP_WEB_URL: ${MCP_WEB_URL:?MCP_WEB_URL must be set}
     networks:

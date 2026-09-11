@@ -63,34 +63,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, migrate, worker, mcp, web]
+        app: [migrate, mcp]
         arch: [amd64, arm64]
         include:
-          - app: api
-            scope: '@spliit/api'
-            file: Dockerfile
-            target: api
-            image: spliit-cloud-api
           - app: migrate
             scope: '@spliit/db'
             file: Dockerfile
             target: migrate
             image: spliit-cloud-migrate
-          - app: worker
-            scope: '@spliit/worker'
-            file: Dockerfile
-            target: worker
-            image: spliit-cloud-worker
           - app: mcp
             scope: '@spliit/mcp'
             file: Dockerfile
             target: mcp
             image: spliit-cloud-mcp
-          - app: web
-            scope: '@spliit/web'
-            file: Dockerfile.web
-            target: web
-            image: spliit-cloud-web
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -151,16 +136,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - app: api
-            image: spliit-cloud-api
           - app: migrate
             image: spliit-cloud-migrate
-          - app: worker
-            image: spliit-cloud-worker
           - app: mcp
             image: spliit-cloud-mcp
-          - app: web
-            image: spliit-cloud-web
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -235,11 +214,11 @@ jobs:
             echo "### 🐳 Docker images for this release"
             echo ""
             repo_lc=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-            for img in spliit-cloud-api spliit-cloud-migrate spliit-cloud-worker spliit-cloud-mcp spliit-cloud-web; do
+            for img in spliit-cloud-migrate spliit-cloud-mcp; do
               echo "- \`ghcr.io/${repo_lc}/${img}:${TAG}\` (also available as \`:latest\`)"
             done
             echo ""
-            echo "> Pin with \`SPLIIT_TAG=${TAG}\` or follow stable with \`SPLIIT_TAG=latest\` — see \`compose.yaml\`"
+            echo "> Web and API deploy automatically to Vercel on this tag; only the MCP server and the one-shot migration image are published here. Pin with \`SPLIIT_TAG=${TAG}\` or follow stable with \`SPLIIT_TAG=latest\`."
           } >> /tmp/notes.md
 
           cat /tmp/notes.md
@@ -253,6 +232,9 @@ jobs:
 
           echo "Done: $TAG"
 
+  # Web and API no longer build/deploy from this workflow — Vercel's own
+  # GitHub integration deploys them automatically on push/tag. This trigger
+  # now only redeploys the trimmed mcp+migrate Dokploy stack.
   deploy-dokploy:
     name: Trigger Dokploy deploy
     needs: [merge-images, create-release]
@@ -288,19 +270,3 @@ jobs:
           fi
 
           echo "$body"
-
-  deploy-pages:
-    name: Trigger Cloudflare Pages deploy
-    needs: [merge-images, create-release]
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - name: Trigger CF Pages deploy
-        env:
-          CF_PAGES_DEPLOY_HOOK_URL: ${{ secrets.CF_PAGES_DEPLOY_HOOK_URL }}
-        run: |
-          if [ -z "$CF_PAGES_DEPLOY_HOOK_URL" ]; then
-            echo "CF_PAGES_DEPLOY_HOOK_URL is not configured."
-            exit 1
-          fi
-
-          curl -fsS -X POST "$CF_PAGES_DEPLOY_HOOK_URL"

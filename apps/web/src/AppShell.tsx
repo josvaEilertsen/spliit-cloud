@@ -81,14 +81,14 @@ function Content() {
                 className="flex items-center gap-2 transition-transform hover:scale-105"
                 to="/"
               >
-                <div className="flex items-center gap-2" aria-label="Spliit">
-                  <Image
-                    src="/logo-with-text.svg"
-                    className="m-1 h-[45px] w-auto"
-                    width={(45 * 522) / 180}
-                    height={45}
-                    alt="Spliit"
-                  />
+                <div
+                  className="m-1 flex flex-col justify-center leading-tight"
+                  aria-label="Tit Bus"
+                >
+                  <span className="text-lg font-bold">Tit Bus</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    Powered by Spliit cloud
+                  </span>
                 </div>
               </Link>
               <nav aria-label={t('Header.menu')} className="flex">
@@ -118,14 +118,15 @@ function Content() {
                 data-app-header
                 className="fixed inset-x-0 top-0 z-50 flex h-(--app-header-height) items-center justify-between border-b bg-white/90 px-3 app-header-inset backdrop-blur sm:hidden dark:bg-gray-950/90"
               >
-                <Link to="/" aria-label="Spliit" className="flex items-center">
-                  <Image
-                    src="/logo-with-text.svg"
-                    className="h-9 w-auto"
-                    width={(36 * 522) / 180}
-                    height={36}
-                    alt="Spliit"
-                  />
+                <Link
+                  to="/"
+                  aria-label="Tit Bus"
+                  className="flex flex-col justify-center leading-tight"
+                >
+                  <span className="text-base font-bold">Tit Bus</span>
+                  <span className="text-[9px] text-muted-foreground">
+                    Powered by Spliit cloud
+                  </span>
                 </Link>
                 <MobileAppHeaderActions />
               </div>

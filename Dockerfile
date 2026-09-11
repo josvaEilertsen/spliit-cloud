@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# This Dockerfile now only builds the MCP server (and, optionally, a one-shot
+# database migration image). The API, worker, and web images were retired
+# when the app moved to a Vercel deployment (api/index.ts + vercel.json at
+# the repo root) — see README.md's "Deploy to Vercel" section.
+
 FROM oven/bun:1.4.0-slim AS base
 WORKDIR /app
 
@@ -14,54 +19,10 @@ COPY --from=pruner /app/out/json/ ./
 COPY --from=pruner /app/out/bun.lock ./bun.lock
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
-# Generate the Prisma client from schema inputs only so app-source-only
-# commits can reuse this layer via BuildKit content hashing.
-FROM installer AS prisma
-COPY --from=pruner /app/out/full/packages/db/prisma ./packages/db/prisma
-COPY --from=pruner /app/out/full/packages/db/prisma.config.ts ./packages/db/prisma.config.ts
-RUN mkdir -p packages/db/src \
-  && bun --filter @spliit/db prisma-generate
-
-FROM installer AS source-builder
-COPY --from=pruner /app/out/full/ ./
-COPY --from=prisma /app/packages/db/src/generated ./packages/db/src/generated
-
-FROM source-builder AS api-builder
-# Regenerate the OpenAPI spec during build — the source is gitignored and
-# excluded from turbo prune's `out/full/`. Keep generation in the full-dependency
-# builder because @trpc/openapi requires TypeScript tooling. Enable MCP with
-# non-routable placeholders so the generated document includes the optional
-# OAuth/assistant surface as well.
-RUN NODE_ENV= \
-  ENABLE_MCP=true \
-  MCP_PUBLIC_URL=https://mcp-build.invalid \
-  ASSISTANT_CONFIRMATION_SECRET=assistant-build-secret-at-least-32-bytes \
-  SKIP_AUTH_OPENAPI=1 \
-  bun run apps/api/scripts/generate-openapi.ts
-RUN bun --filter @spliit/api bundle:runtime
-
-FROM base AS api
-ENV NODE_ENV=production
-RUN mkdir -p /data
-COPY --from=api-builder /app/apps/api/dist/server.js ./apps/api/dist/server.js
-COPY --from=api-builder /app/apps/api/openapi.json ./apps/api/openapi.json
-EXPOSE 3001
-CMD ["bun", "run", "apps/api/dist/server.js"]
-
 FROM installer AS migrate
 ENV NODE_ENV=production
 COPY --from=pruner /app/out/full/ ./
 CMD ["bun", "run", "--filter", "@spliit/db", "prisma-migrate"]
-
-FROM source-builder AS worker-builder
-RUN bun --filter @spliit/worker bundle:runtime
-
-FROM base AS worker
-ENV NODE_ENV=production
-RUN mkdir -p /data
-COPY --from=worker-builder /app/apps/worker/dist/server.js ./apps/worker/dist/server.js
-EXPOSE 3003
-CMD ["bun", "run", "apps/worker/dist/server.js"]
 
 FROM installer AS mcp-builder
 ENV NODE_ENV=production

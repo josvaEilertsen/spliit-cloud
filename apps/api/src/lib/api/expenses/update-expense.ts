@@ -8,11 +8,12 @@ import {
   wallTimeToUtc,
   type Expense,
 } from '@spliit/domain'
-import { env as jobsEnv } from '@spliit/jobs'
+import { env as jobsEnv, JOB_NAMES } from '@spliit/jobs'
 
 import { deleteS3Object } from '../../../routes/upload'
 import { resolveConversion } from '../../expense-conversion'
 import { resolveParticipantDisplayName } from '../../invitations'
+import { triggerImmediateDrain } from '../../jobs/drain-handlers'
 import {
   buildExpenseActivityData,
   logActivity,
@@ -1058,6 +1059,13 @@ export async function updateExpense(
     } catch (err) {
       console.warn(`[expenses] failed to delete S3 object ${url}:`, err)
     }
+  }
+
+  // The update above may have enqueued a recurring-expense materialize job
+  // (new series, reflowed schedule, etc.); drain now instead of waiting for
+  // the next cron tick. Cheap no-op if nothing was actually enqueued.
+  if (boss) {
+    triggerImmediateDrain(boss, JOB_NAMES.MATERIALIZE_RECURRING_EXPENSE)
   }
 
   return updatedExpense

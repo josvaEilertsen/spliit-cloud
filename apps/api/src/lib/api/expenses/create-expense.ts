@@ -9,12 +9,13 @@ import {
   utcToWallTime,
   type Expense,
 } from '@spliit/domain'
-import { env as jobsEnv, type SpliitBoss } from '@spliit/jobs'
+import { env as jobsEnv, JOB_NAMES, type SpliitBoss } from '@spliit/jobs'
 
 import {
   resolveConversion,
   type ConversionResolution,
 } from '../../expense-conversion'
+import { triggerImmediateDrain } from '../../jobs/drain-handlers'
 import {
   buildExpenseActivityData,
   logActivity,
@@ -475,9 +476,17 @@ export async function createExpense(
     return createdExpense
   }
 
-  const createdExpense = options?.tx
-    ? await run(options.tx)
-    : await prisma.$transaction(run)
+  if (options?.tx) {
+    // Nested inside a caller-owned transaction (e.g. a batch import); that
+    // transaction hasn't committed yet when we return, so any materialize
+    // job enqueued above isn't visible yet. Skip the immediate drain here —
+    // the cron backstop still picks it up within minutes.
+    return run(options.tx)
+  }
 
+  const createdExpense = await prisma.$transaction(run)
+  if (isCreateRecurrence && queueBoss) {
+    triggerImmediateDrain(queueBoss, JOB_NAMES.MATERIALIZE_RECURRING_EXPENSE)
+  }
   return createdExpense
 }

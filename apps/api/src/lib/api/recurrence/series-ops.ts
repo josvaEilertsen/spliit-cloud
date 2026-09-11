@@ -15,6 +15,7 @@ import {
   type SpliitBoss,
 } from '@spliit/jobs'
 
+import { triggerImmediateDrain } from '../../jobs/drain-handlers'
 import { getApiBossForWrite } from '../boss'
 import { groupLedgerIdArchivedSelect } from '../selects/group-ledger-id-archived'
 import {
@@ -41,6 +42,12 @@ export async function enqueueMaterialization(
     sequence: payload.sequence,
     occurrenceDate: payload.occurrenceDate.toISOString().slice(0, 10),
   }
+  // This send is bound to `tx` (bossTransactionDb) so the job row isn't
+  // visible outside this transaction until it commits — draining here would
+  // just find nothing. Callers trigger the immediate drain themselves, once
+  // their own transaction has actually committed (see triggerImmediateDrain
+  // call sites in create-expense.ts, update-expense.ts, import.ts, and
+  // resumeRecurringExpenseSeries below).
   return sendJob(boss, JOB_NAMES.MATERIALIZE_RECURRING_EXPENSE, jobPayload, {
     deadLetter: `${JOB_NAMES.MATERIALIZE_RECURRING_EXPENSE}.dead-letter`,
     startAfter: recurrenceJobStartAfter(
@@ -311,6 +318,11 @@ export async function reconcileDueRecurringExpenses(
       }
     }
   }
+  // The materialize sends above are not transaction-bound, so they're
+  // already visible; drain now instead of waiting for the next cron tick.
+  if (due.length > 0) {
+    triggerImmediateDrain(boss, JOB_NAMES.MATERIALIZE_RECURRING_EXPENSE)
+  }
   return due.length
 }
 
@@ -348,7 +360,7 @@ export async function resumeRecurringExpenseSeries(
     ? (existingBoss ?? (await getApiBossForWrite()))
     : undefined
 
-  return prisma.$transaction(async (tx) => {
+  const resumed = await prisma.$transaction(async (tx) => {
     // Archive and resume use the same Group -> Series lock order. The group
     // is re-read under the lock so a concurrent re-archive cannot leave an
     // ACTIVE series behind.
@@ -462,4 +474,10 @@ export async function resumeRecurringExpenseSeries(
     }
     return resumed
   })
+  // The materialize jobs above were enqueued inside the transaction just
+  // committed; drain now instead of waiting for the next cron tick.
+  if (resumed > 0 && boss) {
+    triggerImmediateDrain(boss, JOB_NAMES.MATERIALIZE_RECURRING_EXPENSE)
+  }
+  return resumed
 }

@@ -26,7 +26,6 @@ storage
 .env
 *.env
 !.env.example
-!container.env.example
 !bun.lock
 
 # agent / editor / local tooling

@@ -25,6 +25,11 @@ import {
 } from './lib/rate-limit'
 import { buildScalarConfig } from './lib/scalar-theme'
 import {
+  runAnonymousCleanupDrain,
+  runMaterializeDrain,
+  runReconcileDrain,
+} from './routes/cron'
+import {
   emailUnsubscribeGet,
   emailUnsubscribePost,
 } from './routes/email-unsubscribe'
@@ -105,6 +110,12 @@ app.use(
 app.get('/health', () => checkLiveness())
 app.get('/health/liveness', () => checkLiveness())
 app.get('/health/readiness', () => checkReadiness())
+
+// Vercel Cron-triggered background job drains, replacing the persistent
+// worker's pg-boss subscription loop. See CRON_SECRET in lib/env.ts.
+app.get('/api/cron/materialize', runMaterializeDrain)
+app.get('/api/cron/reconcile', runReconcileDrain)
+app.get('/api/cron/anonymous-cleanup', runAnonymousCleanupDrain)
 
 export function clientRateLimitMiddleware(options: {
   policy: string

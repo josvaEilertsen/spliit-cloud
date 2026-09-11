@@ -137,6 +137,11 @@ const envSchema = z
     // Dedicated secret for stateless optional-email unsubscribe links.
     EMAIL_UNSUBSCRIBE_SECRET: optionalString,
 
+    // Authenticates Vercel Cron requests to /api/cron/*. Vercel sends this
+    // value as `Authorization: Bearer <CRON_SECRET>` on its own cron-triggered
+    // requests; generate with e.g. `openssl rand -hex 32`.
+    CRON_SECRET: optionalString,
+
     // Account registration. `open` is the historical default (anyone can
     // create an account). `invite_only` restricts sign-up to the first
     // account on a fresh instance, emails with a pending group/friend
@@ -197,6 +202,13 @@ const envSchema = z
         code: 'custom',
         path: ['EMAIL_FROM'],
         message: 'EMAIL_FROM is required in production',
+      })
+    }
+    if (env.NODE_ENV === 'production' && !env.CRON_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CRON_SECRET'],
+        message: 'CRON_SECRET is required in production',
       })
     }
     const pushVapidValues = [

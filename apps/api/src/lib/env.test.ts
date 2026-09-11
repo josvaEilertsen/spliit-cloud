@@ -24,6 +24,7 @@ const productionBase: NodeJS.ProcessEnv = {
   SMTP_PASS: 'pass',
   EMAIL_FROM: 'Spliit <noreply@test>',
   EMAIL_UNSUBSCRIBE_SECRET: 'a'.repeat(32),
+  CRON_SECRET: 'c'.repeat(32),
 }
 
 describe('envSchema — production', () => {
@@ -31,6 +32,12 @@ describe('envSchema — production', () => {
     expect(() =>
       parseTestEnv({ ...productionBase, SMTP_HOST: undefined }),
     ).toThrow(/SMTP_HOST is required in production/)
+  })
+
+  it('throws when CRON_SECRET is missing', () => {
+    expect(() =>
+      parseTestEnv({ ...productionBase, CRON_SECRET: undefined }),
+    ).toThrow(/CRON_SECRET is required in production/)
   })
 
   it('throws when EMAIL_FROM is missing', () => {
