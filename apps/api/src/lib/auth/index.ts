@@ -563,7 +563,13 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    // This deployment has no outbound email (no SMTP configured), so
+    // verification links can never be delivered — requiring verification
+    // would permanently lock every new password account out. Sign-up now
+    // creates a usable session immediately; the verification-email hook
+    // below still exists (best-effort, dormant) in case SMTP is configured
+    // later.
+    requireEmailVerification: false,
     minPasswordLength: 8,
     maxPasswordLength: 128,
     // One-hour window between requesting the reset and clicking the link.

@@ -17,8 +17,6 @@ import type { HomeSearch } from '@/router/schemas'
 import { isStrongPassword } from '@spliit/domain/password'
 
 export type Mode = 'sign-in' | 'sign-up'
-export type EmailVariant = 'magic-link' | 'password'
-export type SuccessState = 'magic-link' | 'verification'
 
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message
@@ -69,11 +67,9 @@ export function useAuthPanel(options?: { redirectTo?: string }) {
   const completeProfileCallbackURL = `${webOrigin}${completeProfilePath}`
 
   const [requestedMode, setRequestedMode] = useState<Mode>(initialMode)
-  const [emailVariant, setEmailVariant] = useState<EmailVariant>('magic-link')
   const [email, setEmail] = useState<string>(initialEmail ?? '')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [successState, setSuccessState] = useState<SuccessState | null>(null)
 
   // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- better-auth session via cookies, not tRPC query cache
   const emailAuth = useMutation({
@@ -92,7 +88,7 @@ export function useAuthPanel(options?: { redirectTo?: string }) {
         if (result.error) {
           throw new Error(t('errors.invalidCredentials'))
         }
-        return { mode: 'sign-in' as const }
+        return
       }
 
       if (!isStrongPassword(vars.password)) {
@@ -121,60 +117,23 @@ export function useAuthPanel(options?: { redirectTo?: string }) {
               : t('errors.generic'),
         )
       }
-      return { mode: 'sign-up' as const }
     },
     onError() {
       mascot.react('failure')
     },
-    async onSuccess(data) {
-      if (data.mode === 'sign-up') {
-        mascot.react('success')
-        setSuccessState('verification')
-      } else {
-        const session = await authClient.getSession({
-          query: { disableCookieCache: true },
-        })
-        const account = session.data?.user
-        await navigate({
-          href:
-            account && needsDisplayName(account)
-              ? completeProfilePath
-              : redirectTo,
-          replace: true,
-        })
-      }
-    },
-  })
-
-  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- better-auth session via cookies, not tRPC query cache
-  const magicLink = useMutation({
-    retry: false,
-    mutationFn: async (vars: { email: string; callbackURL: string }) => {
-      if (!vars.email.trim()) {
-        throw new Error(t('errors.emailRequired'))
-      }
-      const result = await authClient.signIn.magicLink(
-        {
-          email: vars.email.trim(),
-          callbackURL: vars.callbackURL,
-          newUserCallbackURL: completeProfileCallbackURL,
-        },
-        signupInviteFetchOptions(linkInviteToken),
-      )
-      if (result.error) {
-        throw new Error(
-          isSignupInviteRequired(result.error)
-            ? t('errors.signupInviteRequired')
-            : t('errors.magicLinkFailed'),
-        )
-      }
-    },
-    onSuccess() {
+    async onSuccess() {
       mascot.react('success')
-      setSuccessState('magic-link')
-    },
-    onError() {
-      mascot.react('failure')
+      const session = await authClient.getSession({
+        query: { disableCookieCache: true },
+      })
+      const account = session.data?.user
+      await navigate({
+        href:
+          account && needsDisplayName(account)
+            ? completeProfilePath
+            : redirectTo,
+        replace: true,
+      })
     },
   })
 
@@ -197,25 +156,8 @@ export function useAuthPanel(options?: { redirectTo?: string }) {
     if (next === 'sign-up' && !canSignUp) return
     setRequestedMode(next)
     emailAuth.reset()
-    magicLink.reset()
     setPassword('')
     setConfirmPassword('')
-    setSuccessState(null)
-  }
-
-  function resetEmailFlow() {
-    setEmail('')
-    setPassword('')
-    setConfirmPassword('')
-    setSuccessState(null)
-    emailAuth.reset()
-    magicLink.reset()
-  }
-
-  function handleMagicLink(event: React.FormEvent) {
-    event.preventDefault()
-    if (!isOnline) return
-    magicLink.mutate({ email, callbackURL })
   }
 
   function handlePasswordSubmit(event: React.FormEvent) {
@@ -270,11 +212,9 @@ export function useAuthPanel(options?: { redirectTo?: string }) {
 
   return {
     mode,
-    emailVariant,
     email,
     password,
     confirmPassword,
-    successState,
     redirectTo,
     completeProfilePath,
     canSubmitPassword,
@@ -290,17 +230,12 @@ export function useAuthPanel(options?: { redirectTo?: string }) {
     setEmail,
     setPassword,
     setConfirmPassword,
-    setEmailVariant,
-    setSuccessState,
     switchMode,
-    resetEmailFlow,
-    handleMagicLink,
     handlePasswordSubmit,
     handleGoogle,
     handleGithub,
     handleTwitter,
     handleOidc,
     emailAuth,
-    magicLink,
   }
 }

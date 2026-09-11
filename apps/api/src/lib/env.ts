@@ -190,18 +190,15 @@ const envSchema = z
           'ASSISTANT_CONFIRMATION_SECRET must be at least 32 bytes when ENABLE_MCP is true',
       })
     }
-    if (env.NODE_ENV === 'production' && !env.SMTP_HOST) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['SMTP_HOST'],
-        message: 'SMTP_HOST is required in production',
-      })
-    }
-    if (env.NODE_ENV === 'production' && !env.EMAIL_FROM) {
+    // SMTP is optional: this deployment doesn't require outbound email
+    // (auth email verification is disabled; see requireEmailVerification in
+    // lib/auth/index.ts). If SMTP_HOST is configured anyway (e.g. to enable
+    // invitation emails), EMAIL_FROM must be set alongside it.
+    if (env.SMTP_HOST && !env.EMAIL_FROM) {
       ctx.addIssue({
         code: 'custom',
         path: ['EMAIL_FROM'],
-        message: 'EMAIL_FROM is required in production',
+        message: 'EMAIL_FROM is required when SMTP_HOST is configured',
       })
     }
     if (env.NODE_ENV === 'production' && !env.CRON_SECRET) {

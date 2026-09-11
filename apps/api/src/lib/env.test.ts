@@ -28,10 +28,17 @@ const productionBase: NodeJS.ProcessEnv = {
 }
 
 describe('envSchema — production', () => {
-  it('throws when SMTP_HOST is missing', () => {
-    expect(() =>
-      parseTestEnv({ ...productionBase, SMTP_HOST: undefined }),
-    ).toThrow(/SMTP_HOST is required in production/)
+  it('allows SMTP_HOST and EMAIL_FROM to be missing (email is optional)', () => {
+    const env = parseTestEnv({
+      ...productionBase,
+      SMTP_HOST: undefined,
+      SMTP_USER: undefined,
+      SMTP_PASS: undefined,
+      EMAIL_FROM: undefined,
+      EMAIL_UNSUBSCRIBE_SECRET: undefined,
+    })
+    expect(env.SMTP_HOST).toBeUndefined()
+    expect(env.EMAIL_FROM).toBeUndefined()
   })
 
   it('throws when CRON_SECRET is missing', () => {
@@ -40,10 +47,10 @@ describe('envSchema — production', () => {
     ).toThrow(/CRON_SECRET is required in production/)
   })
 
-  it('throws when EMAIL_FROM is missing', () => {
+  it('throws when EMAIL_FROM is missing but SMTP_HOST is set', () => {
     expect(() =>
       parseTestEnv({ ...productionBase, EMAIL_FROM: undefined }),
-    ).toThrow(/EMAIL_FROM is required in production/)
+    ).toThrow(/EMAIL_FROM is required when SMTP_HOST is configured/)
   })
 
   it('allows an anonymous SMTP relay when both credentials are absent', () => {
